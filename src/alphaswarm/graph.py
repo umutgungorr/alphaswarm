@@ -18,6 +18,7 @@ class AlphaSwarmGraph:
         market_data: MarketData,
         on_agent_speak: Optional[Callable[[AgentThought, int], None]] = None,
         on_round_start: Optional[Callable[[int], None]] = None,
+        lang: str = "tr",
     ) -> ConsensusVerdict:
         """Executes the multi-agent consensus graph over N debate rounds."""
         rounds: list[DebateRound] = []
@@ -30,19 +31,19 @@ class AlphaSwarmGraph:
             current_round_thoughts: list[AgentThought] = []
 
             # 1. Technical Analyst
-            tech_thought = self.technical_agent.analyze(market_data, accumulated_thoughts)
+            tech_thought = self.technical_agent.analyze(market_data, accumulated_thoughts, lang=lang)
             current_round_thoughts.append(tech_thought)
             if on_agent_speak:
                 on_agent_speak(tech_thought, r)
 
             # 2. Sentiment Analyst
-            sent_thought = self.sentiment_agent.analyze(market_data, current_round_thoughts)
+            sent_thought = self.sentiment_agent.analyze(market_data, current_round_thoughts, lang=lang)
             current_round_thoughts.append(sent_thought)
             if on_agent_speak:
                 on_agent_speak(sent_thought, r)
 
             # 3. Risk Manager (Devil's Advocate)
-            risk_thought = self.risk_agent.analyze(market_data, current_round_thoughts)
+            risk_thought = self.risk_agent.analyze(market_data, current_round_thoughts, lang=lang)
             current_round_thoughts.append(risk_thought)
             if on_agent_speak:
                 on_agent_speak(risk_thought, r)
@@ -50,9 +51,10 @@ class AlphaSwarmGraph:
             accumulated_thoughts.extend(current_round_thoughts)
 
             # Note shifts if round > 1
-            shift_note = "Initial positioning established."
-            if r > 1:
-                shift_note = "Cross-agent counterarguments integrated; confidence bands tightened."
+            if lang == "tr":
+                shift_note = "Başlangıç tezleri ve konumlanmalar belirlendi." if r == 1 else "Karşıt argümanlar değerlendirildi; güven sınırları daraltıldı."
+            else:
+                shift_note = "Initial positioning established." if r == 1 else "Cross-agent counterarguments integrated; confidence bands tightened."
 
             rounds.append(DebateRound(
                 round_number=r,
@@ -62,7 +64,7 @@ class AlphaSwarmGraph:
 
         # 4. Final Arbitrator Consensus
         final_stance, confidence, invalidation, thesis, bull_case, bear_case = self.arbitrator.synthesize(
-            market_data, rounds[-1].thoughts, len(rounds)
+            market_data, rounds[-1].thoughts, len(rounds), lang=lang
         )
 
         return ConsensusVerdict(

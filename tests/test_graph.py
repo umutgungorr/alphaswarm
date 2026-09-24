@@ -1,11 +1,11 @@
 """Unit tests for AlphaSwarm consensus graph."""
 
 from alphaswarm.graph import AlphaSwarmGraph
-from alphaswarm.market_data import generate_mock_market_data
+from alphaswarm.market_data import get_market_data
 
 
 def test_graph_propagation():
-    data = generate_mock_market_data("SOL")
+    data = get_market_data("SOL", force_offline=True)
     graph = AlphaSwarmGraph(max_rounds=2)
 
     spoken_thoughts = []
