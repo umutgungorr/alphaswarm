@@ -159,6 +159,11 @@ class ConsensusVerdict:
     bull_case: str
     bear_case: str
     debate_rounds: list[DebateRound]
+    take_profit_1: float = 0.0
+    take_profit_2: float = 0.0
+    risk_reward_ratio: float = 0.0
+    support_level: float = 0.0
+    resistance_level: float = 0.0
     generated_at: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
 
     def to_dict(self) -> dict[str, Any]:
@@ -169,6 +174,11 @@ class ConsensusVerdict:
             "market_price": self.market_price,
             "time_horizon": self.time_horizon,
             "key_invalidation_level": self.key_invalidation_level,
+            "take_profit_1": self.take_profit_1,
+            "take_profit_2": self.take_profit_2,
+            "risk_reward_ratio": self.risk_reward_ratio,
+            "support_level": self.support_level,
+            "resistance_level": self.resistance_level,
             "primary_thesis": self.primary_thesis,
             "bull_case": self.bull_case,
             "bear_case": self.bear_case,

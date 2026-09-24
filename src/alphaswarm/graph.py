@@ -67,6 +67,34 @@ class AlphaSwarmGraph:
             market_data, rounds[-1].thoughts, len(rounds), lang=lang
         )
 
+        # 5. Derive actionable execution parameters (Targets, Support, Resistance, R:R)
+        price = market_data.current_price
+        ind = market_data.indicators
+        atr = ind.atr_14 if (ind and ind.atr_14 > 0) else (price * 0.03)
+
+        if final_stance in (Stance.STRONG_BULL, Stance.BULLISH):
+            tp1 = round(max(price + atr * 1.5, ind.bollinger_upper if (ind and ind.bollinger_upper > price) else price * 1.05), 2)
+            tp2 = round(price + atr * 3.2, 2)
+            risk = max(price * 0.005, abs(price - invalidation))
+            reward = max(price * 0.005, tp1 - price)
+            rr = round(reward / risk, 2)
+            support = round(min(ind.bollinger_lower if ind else price * 0.95, invalidation), 2)
+            resistance = round(tp1, 2)
+        elif final_stance in (Stance.STRONG_BEAR, Stance.BEARISH):
+            tp1 = round(min(price - atr * 1.5, ind.bollinger_lower if (ind and ind.bollinger_lower < price) else price * 0.95), 2)
+            tp2 = round(max(0.01, price - atr * 3.2), 2)
+            risk = max(price * 0.005, abs(invalidation - price))
+            reward = max(price * 0.005, price - tp1)
+            rr = round(reward / risk, 2)
+            support = round(tp1, 2)
+            resistance = round(max(ind.bollinger_upper if ind else price * 1.05, invalidation), 2)
+        else:
+            support = round(ind.bollinger_lower if (ind and ind.bollinger_lower > 0) else price * 0.96, 2)
+            resistance = round(ind.bollinger_upper if (ind and ind.bollinger_upper > 0) else price * 1.04, 2)
+            tp1 = round(resistance, 2)
+            tp2 = round(resistance * 1.03, 2)
+            rr = 1.0
+
         return ConsensusVerdict(
             symbol=market_data.symbol,
             final_stance=final_stance,
@@ -74,6 +102,11 @@ class AlphaSwarmGraph:
             market_price=market_data.current_price,
             time_horizon="SWING_1_TO_4_WEEKS",
             key_invalidation_level=invalidation,
+            take_profit_1=tp1,
+            take_profit_2=tp2,
+            risk_reward_ratio=rr,
+            support_level=support,
+            resistance_level=resistance,
             primary_thesis=thesis,
             bull_case=bull_case,
             bear_case=bear_case,

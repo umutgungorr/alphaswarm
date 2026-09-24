@@ -22,3 +22,8 @@ def test_graph_propagation():
     assert len(spoken_thoughts) == 6
     assert verdict.primary_thesis != ""
     assert verdict.key_invalidation_level > 0
+    assert verdict.take_profit_1 > 0
+    assert verdict.take_profit_2 > 0
+    assert verdict.risk_reward_ratio > 0
+    assert verdict.support_level > 0
+    assert verdict.resistance_level > 0

@@ -28,6 +28,10 @@ COIN_CATALOGUE = {
     "DOT": {"name": "Polkadot", "base_price": 4.60, "vol": 0.045},
     "SHIB": {"name": "Shiba Inu", "base_price": 0.000014, "vol": 0.065},
     "LTC": {"name": "Litecoin", "base_price": 65.0, "vol": 0.035},
+    "TON": {"name": "Toncoin", "base_price": 5.60, "vol": 0.045},
+    "RENDER": {"name": "Render", "base_price": 6.20, "vol": 0.060},
+    "INJ": {"name": "Injective", "base_price": 21.5, "vol": 0.055},
+    "TIA": {"name": "Celestia", "base_price": 5.8, "vol": 0.060},
 }
 
 STOCK_CATALOGUE = {
@@ -49,6 +53,12 @@ STOCK_CATALOGUE = {
     "EREGL": {"name": "Ereğli Demir Çelik", "base_price": 52.0, "vol": 0.018, "currency": "TRY"},
     "GARAN": {"name": "Garanti BBVA", "base_price": 120.0, "vol": 0.024, "currency": "TRY"},
     "KCHOL": {"name": "Koç Holding", "base_price": 215.0, "vol": 0.020, "currency": "TRY"},
+    "TUPRS": {"name": "Tüpraş", "base_price": 175.0, "vol": 0.022, "currency": "TRY"},
+    "SAHOL": {"name": "Sabancı Holding", "base_price": 95.0, "vol": 0.020, "currency": "TRY"},
+    "ISCTR": {"name": "İş Bankası (C)", "base_price": 13.5, "vol": 0.025, "currency": "TRY"},
+    "BIMAS": {"name": "BİM Mağazalar", "base_price": 520.0, "vol": 0.018, "currency": "TRY"},
+    "SISE": {"name": "Şişecam", "base_price": 45.0, "vol": 0.020, "currency": "TRY"},
+    "AKBNK": {"name": "Akbank", "base_price": 58.0, "vol": 0.024, "currency": "TRY"},
 }
 
 

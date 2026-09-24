@@ -36,3 +36,21 @@ def test_agent_roles_and_analysis():
         data, [tech_thought, sent_thought, risk_thought], round_num=1, lang="en"
     )
     assert "Consensus Swarm settles on" in thesis_en
+
+
+def test_answer_user_scenario():
+    from alphaswarm.agents import answer_user_scenario
+    data = get_market_data("BTC", force_offline=True)
+
+    # TR question
+    resp_tr = answer_user_scenario(data, "Bu fiyattan alım yapılır mı?", lang="tr")
+    assert resp_tr["symbol"] == "BTC"
+    assert "Aria Vance" in resp_tr["aria"]
+    assert "Marcus Cole" in resp_tr["marcus"]
+    assert "Vesper Sterling" in resp_tr["vesper"]
+    assert "Konsensüs" in resp_tr["sovereign"]
+
+    # EN question
+    resp_en = answer_user_scenario(data, "Should we exit or sell now?", lang="en")
+    assert "Quantitative View" in resp_en["aria"]
+    assert "Macro & Flows" in resp_en["marcus"]

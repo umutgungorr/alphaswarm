@@ -430,3 +430,138 @@ class ArbitratorAgent(BaseAgent):
             bear_case = (risk.identified_risks[0] if risk and risk.identified_risks else "Macro drawdown risk")
 
         return final_stance, conf, invalidation, thesis, bull_case, bear_case
+
+
+def answer_user_scenario(data: MarketData, question: str, lang: str = "tr") -> dict[str, Any]:
+    """Provides a tailored multi-agent consultation answering the user's specific scenario or question."""
+    q_lower = question.lower()
+    ind = data.indicators
+    price = data.current_price
+    c_sym = data.currency
+
+    # Topic detection
+    is_buy = any(w in q_lower for w in ["al", "alım", "buy", "girilir", "toplan", "entry", "uzun", "long"])
+    is_sell = any(w in q_lower for w in ["sat", "satış", "sell", "çık", "exit", "kısa", "short", "kar al", "tp"])
+    is_crash = any(w in q_lower for w in ["çök", "düş", "dump", "crash", "kriz", "ayı", "panik", "drop"])
+    is_leverage = any(w in q_lower for w in ["kaldıraç", "leverage", "marjin", "margin", "vadeli", "futures", "fonlama"])
+
+    if lang == "tr":
+        if is_buy:
+            aria = (
+                f"Teknik Analiz (Aria Vance): {data.symbol} şu anda {price:,.2f} {c_sym} seviyesinde. "
+                f"RSI ({ind.rsi_14:.1f}) ve SMA-50 ({ind.sma_50:,.2f}) dikkate alındığında; "
+                f"tek seferde tüm bakiye ile girmek yerine {ind.bollinger_middle:,.2f} bandına ve "
+                f"{ind.sma_50:,.2f} desteğine kademeli limit alım emirleri yaymak ortalama maliyet avantajı sağlar."
+            )
+            marcus = (
+                f"Makro Duyarlılık (Marcus Cole): Piyasa hissiyatı ({data.fear_greed_score}/100 - {data.fear_greed_label}) "
+                f"seviyesinde. Kurumsal likidite girişleri henüz doyum noktasına ulaşmadı. "
+                f"Alım iştahı mevcut ancak makro veri açıklamaları öncesinde aşırı riskten kaçınılmalı."
+            )
+            vesper = (
+                f"Risk Denetimi (Vesper Sterling): Alım yapacaksanız katı zarar kes (stop) seviyeniz "
+                f"{ind.bollinger_lower:,.2f} {c_sym} altında olmalı. "
+                f"Portföyünüzün en fazla %5-%10'unu bu pozisyona ayırın; aksi takdirde olası sert iğnelerde marjin baskısı yaşarsınız."
+            )
+            sovereign = (
+                f"Konsensüs Kararı: Kademeli alım stratejisi UYGUNDUR. "
+                f"Tavsiye Edilen Alım Aralığı: {price:,.2f} - {ind.bollinger_middle:,.2f} {c_sym} | "
+                f"Katı Stop: {ind.bollinger_lower:,.2f} | İlk Kar Hedefi: {ind.bollinger_upper:,.2f}."
+            )
+        elif is_sell:
+            aria = (
+                f"Teknik Analiz (Aria Vance): Fiyat {price:,.2f} {c_sym}. Üst Bollinger direnci {ind.bollinger_upper:,.2f} "
+                f"ve RSI ({ind.rsi_14:.1f}) seviyesi incelendiğinde; ilk kar realizasyonu için direnç teması beklenmeli, "
+                f"pozisyonun %50'si bu seviyede nakde çevrilebilir."
+            )
+            marcus = (
+                f"Makro Duyarlılık (Marcus Cole): Sektörel rotasyon ve kar satışları yakından izlenmeli. "
+                f"Piyasada doyum işaretleri belirmeden erken çıkış yapmak potansiyel trend getirisini kaçırmanıza neden olabilir."
+            )
+            vesper = (
+                f"Risk Denetimi (Vesper Sterling): Karınızı korumak için takip eden stop (trailing stop) koyun. "
+                f"Mevcut fiyattan %3 geriye iz süren stop tanımlayarak hem yukarı marjı korur hem de ani satışlardan korunursunuz."
+            )
+            sovereign = (
+                f"Konsensüs Kararı: Kademeli Kar Realizasyonu ÖNERİLİR. "
+                f"Hedef 1: {ind.bollinger_upper:,.2f} (%50 satış) | Kalan %50 için iz süren stop: {price * 0.97:,.2f} {c_sym}."
+            )
+        elif is_crash:
+            aria = (
+                f"Teknik Analiz (Aria Vance): Olası bir sert geri çekilmede en güçlü ilk destek bölgesi "
+                f"SMA-200 ({ind.sma_200:,.2f} {c_sym}) ve alt Bollinger bandıdır ({ind.bollinger_lower:,.2f}). "
+                f"Bu seviyelerin altında panik satışı yapmak yerine kurumsal tepki hacmi aranmalıdır."
+            )
+            marcus = (
+                f"Makro Duyarlılık (Marcus Cole): Küresel riskten kaçış dalgalarında likit varlıklara talep artar. "
+                f"Panik anlarında nakit oranı en az %40 seviyesinde tutulmalı."
+            )
+            vesper = (
+                f"Risk Denetimi (Vesper Sterling): Düşen bıçak tutulmaz. Destek seviyelerinde yeşil teyit mumu "
+                f"görülmeden 'dip' avcılığına soyunmak hesap batırıcı bir hatadır. Fiyatın taban oluşturmasını bekleyin."
+            )
+            sovereign = (
+                f"Konsensüs Kararı: Savunmacı Nakit Pozisyonuna Geçiş. "
+                f"Birincil Savunma Hattı: {ind.sma_200:,.2f} {c_sym} | Teyitsiz dip alımı YASAKLANDI."
+            )
+        elif is_leverage:
+            aria = (
+                f"Teknik Analiz (Aria Vance): ATR volatilitesi {ind.atr_14:.2f} {c_sym}. "
+                f"Mevcut oynaklık bandında 3x üzerindeki kaldıraç, normal piyasa gürültüsünde bile tasfiye (likidasyon) riski taşır."
+            )
+            marcus = (
+                f"Makro Duyarlılık (Marcus Cole): Fonlama oranları ve açık pozisyon yoğunluğu (Open Interest) "
+                f"kaldıraçlı spekülatörlerin aleyhine sıkışma (squeeze) ihtimalini artırıyor."
+            )
+            vesper = (
+                f"Risk Denetimi (Vesper Sterling): KESİNLİKLE YÜKSEK KALDIRAÇ AÇMAYIN! Maksimum 2x-3x veya spot işlem "
+                f"önerilir. Volatilite stoplarınızı avlayacak kadar geniştir."
+            )
+            sovereign = (
+                f"Konsensüs Kararı: Düşük Kaldıraç veya Spot İşlem ONAYI. "
+                f"Maksimum Kaldıraç Önerisi: 2x | Stop Seviyesi: Zorunlu."
+            )
+        else:
+            aria = (
+                f"Teknik Analiz (Aria Vance): {data.symbol} ({price:,.2f} {c_sym}) için teknik yapı "
+                f"{ind.trend_50_200} formasyonunda. RSI {ind.rsi_14:.1f} ile dengeli seyrediyor."
+            )
+            marcus = (
+                f"Makro Duyarlılık (Marcus Cole): Korku/Açgözlülük skoru {data.fear_greed_score}/100. "
+                f"Haber akışları ve piyasa derinliği orta vadeli trendi desteklemeye devam ediyor."
+            )
+            vesper = (
+                f"Risk Denetimi (Vesper Sterling): Piyasanın genel yönü ne olursa olsun sermaye koruma prensibi "
+                f"esas alınmalıdır. Risk parametresi olarak {ind.bollinger_lower:,.2f} seviyesini aklınızda tutun."
+            )
+            sovereign = (
+                f"Konsensüs Kararı: '{question}' sorunuza istinaden Swarm, pozisyon büyüklüğünü kontrol altında tutarak "
+                f"trend yönünde disiplinli hareket edilmesini önermektedir."
+            )
+    else:
+        if is_buy:
+            aria = f"Quantitative View (Aria Vance): {data.symbol} is at {price:,.2f} {c_sym}. Given RSI ({ind.rsi_14:.1f}) and SMA-50 ({ind.sma_50:,.2f}), scaling in via limit orders towards {ind.bollinger_middle:,.2f} is optimal."
+            marcus = f"Macro & Flows (Marcus Cole): Fear & Greed sits at {data.fear_greed_score}/100 ({data.fear_greed_label}). Institutional liquidity remains steady."
+            vesper = f"Risk Interrogation (Vesper Sterling): Hard stop MUST be set below {ind.bollinger_lower:,.2f} {c_sym}. Allocate no more than 8% of risk equity."
+            sovereign = f"Consensus Verdict: Scaled Buying APPROVED. Entry Zone: {price:,.2f} - {ind.bollinger_middle:,.2f} | Hard Stop: {ind.bollinger_lower:,.2f}."
+        elif is_sell:
+            aria = f"Quantitative View (Aria Vance): Key resistance stands at {ind.bollinger_upper:,.2f}. Trim 50% at band touch to secure gains."
+            marcus = f"Macro & Flows (Marcus Cole): Watch macro sector rotation; avoid exiting entirely if broad market momentum is positive."
+            vesper = f"Risk Interrogation (Vesper Sterling): Trail a dynamic stop 3% behind spot price to let profits run safely."
+            sovereign = f"Consensus Verdict: Staged Take-Profit RECOMMENDED. TP1: {ind.bollinger_upper:,.2f} (50%) | Trailing stop active."
+        else:
+            aria = f"Quantitative View (Aria Vance): {data.symbol} exhibits {ind.trend_50_200} alignment with RSI at {ind.rsi_14:.1f}."
+            marcus = f"Macro & Flows (Marcus Cole): Sentiment index registers {data.fear_greed_score}/100. Underlying liquidity remains sound."
+            vesper = f"Risk Interrogation (Vesper Sterling): Primary invalidation benchmark remains {ind.bollinger_lower:,.2f}."
+            sovereign = f"Consensus Verdict: Maintain structured position sizing aligned with market discipline."
+
+    return {
+        "question": question,
+        "symbol": data.symbol,
+        "price": price,
+        "currency": c_sym,
+        "aria": aria,
+        "marcus": marcus,
+        "vesper": vesper,
+        "sovereign": sovereign,
+    }
