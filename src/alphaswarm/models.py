@@ -30,6 +30,16 @@ class Candle:
     close: float
     volume: float
 
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "timestamp": self.timestamp,
+            "open": round(self.open, 4 if self.open < 1 else 2),
+            "high": round(self.high, 4 if self.high < 1 else 2),
+            "low": round(self.low, 4 if self.low < 1 else 2),
+            "close": round(self.close, 4 if self.close < 1 else 2),
+            "volume": round(self.volume, 2),
+        }
+
 
 @dataclass
 class TechnicalIndicators:
@@ -77,6 +87,8 @@ class MarketData:
     currency: str = "USD"
     candles: list[Candle] = field(default_factory=list)
     indicators: Optional[TechnicalIndicators] = None
+    fear_greed_score: int = 50
+    fear_greed_label: str = "NEUTRAL"
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -88,7 +100,10 @@ class MarketData:
             "low_24h": self.low_24h,
             "volume_24h": self.volume_24h,
             "currency": self.currency,
+            "fear_greed_score": self.fear_greed_score,
+            "fear_greed_label": self.fear_greed_label,
             "indicators": self.indicators.to_dict() if self.indicators else None,
+            "candles": [c.to_dict() for c in self.candles[-45:]],
         }
 
 

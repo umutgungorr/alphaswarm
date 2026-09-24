@@ -1,4 +1,4 @@
-"""Market data fetcher with asset catalogs, strict symbol validation and live APIs."""
+"""Market data fetcher with real Binance & Yahoo Finance APIs and offline fallback."""
 
 import json
 import math
@@ -52,11 +52,45 @@ STOCK_CATALOGUE = {
 }
 
 
-def validate_symbol(symbol: str, asset_type: str | None = None) -> tuple[str, str]:
-    """Validates symbol and returns (clean_symbol, asset_class: 'CRYPTO' | 'EQUITY').
+def calculate_fear_and_greed(rsi: float, change_24h: float, trend: str, vol_ratio: float) -> tuple[int, str]:
+    """Computes a synthesized 0-100 Fear & Greed index score and descriptive label."""
+    score = 50.0
 
-    Raises ValueError if symbol is invalid/not found.
-    """
+    # RSI contribution (weight 40%)
+    score += (rsi - 50.0) * 0.7
+
+    # 24h momentum contribution (weight 25%)
+    score += max(-20.0, min(20.0, change_24h * 2.5))
+
+    # Trend contribution (weight 20%)
+    if trend in ("BULLISH_STACK", "GOLDEN_CROSS"):
+        score += 10.0
+    elif trend in ("BEARISH_STACK", "DEATH_CROSS"):
+        score -= 10.0
+
+    # Volume expansion during uptrend/downtrend (weight 15%)
+    if vol_ratio > 1.2 and change_24h > 0:
+        score += 8.0
+    elif vol_ratio > 1.2 and change_24h < 0:
+        score -= 8.0
+
+    final_score = int(max(5, min(95, round(score))))
+
+    if final_score >= 75:
+        label = "AŞIRI AÇGÖZLÜLÜK (EXTREME GREED)"
+    elif final_score >= 58:
+        label = "AÇGÖZLÜLÜK (GREED)"
+    elif final_score <= 25:
+        label = "AŞIRI KORKU (EXTREME FEAR)"
+    elif final_score <= 42:
+        label = "KORKU (FEAR)"
+    else:
+        label = "NÖTR / DENGELİ (NEUTRAL)"
+
+    return final_score, label
+
+
+def validate_symbol(symbol: str, asset_type: str | None = None) -> tuple[str, str]:
     sym = symbol.upper().strip()
     if not sym:
         raise ValueError("Lütfen geçerli bir sembol girin (Örn: BTC, NVDA).")
@@ -68,15 +102,13 @@ def validate_symbol(symbol: str, asset_type: str | None = None) -> tuple[str, st
         if sym in STOCK_CATALOGUE:
             return sym, "EQUITY"
 
-    # Auto-detection
     if sym in COIN_CATALOGUE:
         return sym, "CRYPTO"
     if sym in STOCK_CATALOGUE:
         return sym, "EQUITY"
 
-    # If user specified something else, check if it's on Binance API
+    # Quick online checks
     if asset_type in (None, "CRYPTO"):
-        # Quick ping to Binance to see if pair exists
         try:
             url = f"https://api.binance.com/api/v3/ticker/price?symbol={sym}USDT"
             req = urllib.request.Request(url, headers={"User-Agent": "AlphaSwarm/1.0"})
@@ -87,8 +119,8 @@ def validate_symbol(symbol: str, asset_type: str | None = None) -> tuple[str, st
             pass
 
     raise ValueError(
-        f"'{sym}' sistemde tanımlı geçerli bir Kripto Para veya Hisse Senedi bulunamadı! "
-        f"Geçerli örnekler: Coinler için (BTC, ETH, SOL, AVAX) | Hisseler için (NVDA, AAPL, TSLA, THYAO)."
+        f"'{sym}' geçerli bir Kripto Para veya Hisse Senedi olarak bulunamadı! "
+        f"Geçerli örnekler: Kripto için (BTC, ETH, SOL, AVAX) | Hisseler için (NVDA, AAPL, TSLA, THYAO)."
     )
 
 
@@ -133,6 +165,9 @@ def generate_simulated_candles(symbol: str, asset_class: str) -> MarketData:
     pct_change = ((latest.close - prev_close) / prev_close) * 100.0
 
     indicators = compute_technical_indicators(candles)
+    fg_score, fg_label = calculate_fear_and_greed(
+        indicators.rsi_14, pct_change, indicators.trend_50_200, indicators.volume_ratio_24h
+    )
 
     return MarketData(
         symbol=sym,
@@ -145,6 +180,8 @@ def generate_simulated_candles(symbol: str, asset_class: str) -> MarketData:
         currency=currency,
         candles=candles,
         indicators=indicators,
+        fear_greed_score=fg_score,
+        fear_greed_label=fg_label,
     )
 
 
@@ -179,18 +216,90 @@ def fetch_binance_crypto(symbol: str) -> MarketData | None:
             ))
 
         indicators = compute_technical_indicators(candles)
+        pct_change = float(ticker_json["priceChangePercent"])
+        fg_score, fg_label = calculate_fear_and_greed(
+            indicators.rsi_14, pct_change, indicators.trend_50_200, indicators.volume_ratio_24h
+        )
 
         return MarketData(
             symbol=sym,
             asset_class="CRYPTO",
             current_price=float(ticker_json["lastPrice"]),
-            change_24h_pct=float(ticker_json["priceChangePercent"]),
+            change_24h_pct=pct_change,
             high_24h=float(ticker_json["highPrice"]),
             low_24h=float(ticker_json["lowPrice"]),
             volume_24h=float(ticker_json["volume"]),
             currency="USD",
             candles=candles,
             indicators=indicators,
+            fear_greed_score=fg_score,
+            fear_greed_label=fg_label,
+        )
+    except Exception:
+        return None
+
+
+def fetch_yahoo_stock(symbol: str) -> MarketData | None:
+    """Fetches real stock candles and price from Yahoo Finance."""
+    sym = symbol.upper().strip()
+    ticker = f"{sym}.IS" if sym in ("THYAO", "ASELS", "EREGL", "GARAN", "KCHOL") else sym
+    url = f"https://query1.finance.yahoo.com/v8/finance/chart/{ticker}?interval=1d&range=3mo"
+    headers = {"User-Agent": "Mozilla/5.0"}
+
+    try:
+        req = urllib.request.Request(url, headers=headers)
+        with urllib.request.urlopen(req, timeout=5) as resp:
+            data = json.loads(resp.read().decode())
+
+        res = data["chart"]["result"][0]
+        meta = res["meta"]
+        quotes = res["indicators"]["quote"][0]
+        timestamps = res["timestamp"]
+
+        candles: list[Candle] = []
+        for i in range(len(timestamps)):
+            o = quotes["open"][i]
+            h = quotes["high"][i]
+            l = quotes["low"][i]
+            c = quotes["close"][i]
+            v = quotes["volume"][i] or 1000.0
+            if None in (o, h, l, c):
+                continue
+            dt = datetime.fromtimestamp(timestamps[i], tz=timezone.utc).strftime("%Y-%m-%d")
+            candles.append(Candle(
+                timestamp=dt,
+                open=round(float(o), 2),
+                high=round(float(h), 2),
+                low=round(float(l), 2),
+                close=round(float(c), 2),
+                volume=float(v),
+            ))
+
+        if len(candles) < 5:
+            return None
+
+        indicators = compute_technical_indicators(candles)
+        last_price = float(meta.get("regularMarketPrice", candles[-1].close))
+        prev_close = float(meta.get("previousClose", candles[-2].close if len(candles) >= 2 else last_price))
+        pct_change = ((last_price - prev_close) / prev_close) * 100.0 if prev_close > 0 else 0.0
+
+        fg_score, fg_label = calculate_fear_and_greed(
+            indicators.rsi_14, pct_change, indicators.trend_50_200, indicators.volume_ratio_24h
+        )
+
+        return MarketData(
+            symbol=sym,
+            asset_class="EQUITY",
+            current_price=last_price,
+            change_24h_pct=pct_change,
+            high_24h=max([c.high for c in candles[-5:]]),
+            low_24h=min([c.low for c in candles[-5:]]),
+            volume_24h=candles[-1].volume,
+            currency=meta.get("currency", "TRY" if ".IS" in ticker else "USD"),
+            candles=candles,
+            indicators=indicators,
+            fear_greed_score=fg_score,
+            fear_greed_label=fg_label,
         )
     except Exception:
         return None
@@ -200,16 +309,20 @@ def get_market_data(symbol: str, asset_type: str | None = None, force_offline: b
     """Validates symbol and returns MarketData. Throws ValueError on invalid symbol."""
     clean_sym, asset_class = validate_symbol(symbol, asset_type=asset_type)
 
-    if not force_offline and asset_class == "CRYPTO":
-        live_crypto = fetch_binance_crypto(clean_sym)
-        if live_crypto is not None:
-            return live_crypto
+    if not force_offline:
+        if asset_class == "CRYPTO":
+            live_crypto = fetch_binance_crypto(clean_sym)
+            if live_crypto is not None:
+                return live_crypto
+        elif asset_class == "EQUITY":
+            live_stock = fetch_yahoo_stock(clean_sym)
+            if live_stock is not None:
+                return live_stock
 
     return generate_simulated_candles(clean_sym, asset_class)
 
 
 def get_top_assets(asset_type: str = "CRYPTO") -> list[dict]:
-    """Returns catalog of verified assets with basic info for fast frontend rendering."""
     catalog = COIN_CATALOGUE if asset_type == "CRYPTO" else STOCK_CATALOGUE
     items = []
     for sym, info in catalog.items():
