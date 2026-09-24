@@ -176,6 +176,10 @@ def build_parser() -> argparse.ArgumentParser:
     scan_p.add_argument("symbols", nargs="+", help="List of tickers (e.g. BTC ETH SOL NVDA)")
     scan_p.add_argument("--offline", action="store_true", help="Force offline simulation data")
 
+    # serve
+    serve_p = subparsers.add_parser("serve", help="Launch interactive visual Web Dashboard")
+    serve_p.add_argument("-p", "--port", type=int, default=5050, help="Web dashboard server port (default: 5050)")
+
     return parser
 
 
@@ -191,6 +195,10 @@ def main(argv: list[str] | None = None) -> int:
         return handle_analyze(args)
     elif args.command == "scan":
         return handle_scan(args)
+    elif args.command == "serve":
+        from alphaswarm.server import start_server
+        start_server(port=args.port)
+        return 0
 
     return 0
 

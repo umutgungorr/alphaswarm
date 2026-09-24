@@ -42,3 +42,11 @@ def test_cli_scan(capsys):
     assert "AlphaSwarm Screening Watchlist" in out
     assert "BTC" in out
     assert "ETH" in out
+
+
+def test_cli_parser_serve():
+    from alphaswarm.cli import build_parser
+    parser = build_parser()
+    args = parser.parse_args(["serve", "--port", "9090"])
+    assert args.command == "serve"
+    assert args.port == 9090
