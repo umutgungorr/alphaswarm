@@ -1,0 +1,24 @@
+"""Unit tests for AlphaSwarm consensus graph."""
+
+from alphaswarm.graph import AlphaSwarmGraph
+from alphaswarm.market_data import generate_mock_market_data
+
+
+def test_graph_propagation():
+    data = generate_mock_market_data("SOL")
+    graph = AlphaSwarmGraph(max_rounds=2)
+
+    spoken_thoughts = []
+
+    def on_speak(thought, r):
+        spoken_thoughts.append((thought.callsign, r))
+
+    verdict = graph.propagate(data, on_agent_speak=on_speak)
+
+    assert verdict.symbol == "SOL"
+    assert 0 <= verdict.confidence_score <= 100
+    assert len(verdict.debate_rounds) == 2
+    # 3 agents per round * 2 rounds = 6 speeches
+    assert len(spoken_thoughts) == 6
+    assert verdict.primary_thesis != ""
+    assert verdict.key_invalidation_level > 0
